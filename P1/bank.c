@@ -72,13 +72,13 @@ void *transaccion(void *ptr)
 			acc2 = rand() % args->bank->num_accounts;
 		}
         pthread_mutex_lock(&args->bank->mutex[acc1]);
-        amount  = rand() % args->bank->accounts[acc1];
-      
-		
-        
-        
-        printf("Thread %d depositing %d for account %d on account %d\n",
-            args->thread_num, amount,acc1, acc2);
+        //IB: HOLD AND WAIT 
+       if (pthread_mutex_trylock(&args->bank->mutex[acc2]))
+		pthread_mutex_unlock(&args->bank->mutex[acc1]);
+		//**//
+		amount  = rand() % args->bank->accounts[acc1];
+		printf("Thread %d depositing %d for account %d on account %d\n",
+        args->thread_num, amount,acc1, acc2);
         balance1 = args->bank->accounts[acc1];
      
         if(args->delay) usleep(args->delay); // Force a context switch
@@ -91,10 +91,6 @@ void *transaccion(void *ptr)
         
         if(args->delay) usleep(args->delay);
         
-		//IB: HOLD AND WAIT 
-       if (pthread_mutex_trylock(&args->bank->mutex[acc2]))
-		pthread_mutex_unlock(&args->bank->mutex[acc1]);
-		//**//
         balance2 = args->bank->accounts[acc2];
         
         if(args->delay) usleep(args->delay);
@@ -105,8 +101,9 @@ void *transaccion(void *ptr)
         
         args->bank->accounts[acc2] = balance2;
         args->net_total += amount;
-	pthread_mutex_unlock(&args->bank->mutex[acc1]);
-        pthread_mutex_unlock(&args->bank->mutex[acc2]);
+        
+		pthread_mutex_unlock(&args->bank->mutex[acc1]);
+		pthread_mutex_unlock(&args->bank->mutex[acc2]);
     }
     return NULL;
 }
@@ -150,26 +147,6 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
         }
         
     }
-    /*
-    for (i = 0;i< opt.num_threads; i++)
-		pthread_join(threads[i].id, NULL);
-	
-	// Create num_thread threads running deposit
-    for (i = 0; i < opt.num_threads; i++) {
-        //threads[i].args = malloc(sizeof(struct args));
-        
-        threads[i].args -> thread_num = i;
-        threads[i].args -> bank       = bank;
-        threads[i].args -> delay      = opt.delay;
-        threads[i].args -> iterations = opt.iterations;
-
-        if (0 != pthread_create(&threads[i].id, NULL, transaccion, threads[i].args)) {
-            printf("Could not create thread #%d", i);
-            exit(1);
-        }
-        
-    }
-    */
     return threads;
 }
 

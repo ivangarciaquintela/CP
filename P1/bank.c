@@ -43,27 +43,12 @@ int countup(int * it,pthread_mutex_t * mtx) {
   return temp;
 }
 
-void lockAll(void *ptr){
-    struct args *args =  ptr;
-    int i;
-    for(i=0;i>args->bank->num_accounts;i--){
-        pthread_mutex_lock(&args->bank->mutex[i]);
-    }
-}
-
-void unlockAll(void *ptr){
-    struct args *args =  ptr;
-    int i;
-    for(i=0;i>args->bank->num_accounts;i--){
-        pthread_mutex_unlock(&args->bank->mutex[i]);
-    }
-}
 
 void balance_total(int it,pthread_mutex_t * mtx,void *ptr){
     struct args *args =  ptr;
     int i;
     int total=0;
-    //lockAll(args);
+
     pthread_mutex_lock(mtx);
     printf("-----BALANCE TOTAL-----\n");
         for(i=0;i<args->bank->num_accounts;i++){
@@ -73,7 +58,7 @@ void balance_total(int it,pthread_mutex_t * mtx,void *ptr){
     printf("Balance total = %d \n", total);
     printf("-----------------------\n");
     pthread_mutex_unlock(mtx);
-    //unlockAll(args);
+
 }
 
 // Threads run on this function

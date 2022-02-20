@@ -20,12 +20,22 @@ struct args {
     int	         iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
+   pthread_mutex_t * itmtx;
 };
 
 struct thread_info {
     pthread_t    id;    // id returned by pthread_create()
     struct args *args;  // pointer to the arguments
 };
+
+int countdown(int * it,pthread_mutex_t * mtx) {
+  int temp;
+  pthread_mutex_lock(mtx);
+  temp = *it ? (*it)-- : 0;
+  pthread_mutex_unlock(mtx);
+  return temp;
+}
+
 
 void lockAll(void *ptr){
     struct args *args =  ptr;
@@ -43,18 +53,21 @@ void unlockAll(void *ptr){
     }
 }
 
-void balance_total(void *ptr){
+void *balance_total(int it,pthread_mutex_t * mtx,void *ptr){
     struct args *args =  ptr;
     int i;
     int total=0;
-    while(args->iterations--){
-        lockAll(args);
-        for(i=0;i>args->bank->num_accounts;i--){
+    //lockAll(args);
+    pthread_mutex_lock(mtx);
+    printf("-----BALANCE TOTAL-----\n");
+        for(i=0;i<args->bank->num_accounts;i++){
+            printf("Cuenta %d  : %d \n",i, args->bank->accounts[i]);
             total += args->bank->accounts[i];
         }
-        printf("balance total = %d\n", total);
-        unlockAll(args);
-    }
+    printf("Balance total = %d \n", total);
+    printf("-----------------------\n");
+    pthread_mutex_unlock(mtx);
+    //unlockAll(args);
 }
 
 // Threads run on this function
@@ -92,7 +105,6 @@ void *transaccion(void *ptr)
     int amount, acc1, acc2, balance1, balance2;
 
     while(args->iterations--) {
-        
         acc1 = rand() % args->bank->num_accounts;
         while (args->bank->accounts[acc1] < 1){
 			acc1 = rand() % args->bank->num_accounts;
@@ -111,6 +123,8 @@ void *transaccion(void *ptr)
 		amount  = rand() % args->bank->accounts[acc1];
 		printf("Thread %d depositing %d for account %d on account %d\n",
         args->thread_num, amount,acc1, acc2);
+
+        balance_total(args->iterations, args->itmtx,args);
         balance1 = args->bank->accounts[acc1];
      
         if(args->delay) usleep(args->delay); // Force a context switch
@@ -147,6 +161,9 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
 
     printf("creating %d threads\n", opt.num_threads);
     threads = malloc(sizeof(struct thread_info) * opt.num_threads);
+    
+    pthread_mutex_t * gl_it_mtx = malloc(sizeof(pthread_mutex_t));
+      pthread_mutex_init(gl_it_mtx,NULL);
 
     if (threads == NULL) {
         printf("Not enough memory\n");
@@ -172,6 +189,8 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
         threads[i].args -> bank       = bank;
         threads[i].args -> delay      = opt.delay;
         threads[i].args -> iterations = opt.iterations;
+        threads[i].args -> itmtx = gl_it_mtx;
+        
 
         if (0 != pthread_create(&threads[i].id, NULL, operacion, threads[i].args)) {
             printf("Could not create thread #%d", i);

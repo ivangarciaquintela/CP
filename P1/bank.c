@@ -35,7 +35,13 @@ int countdown(int * it,pthread_mutex_t * mtx) {
   pthread_mutex_unlock(mtx);
   return temp;
 }
-
+int countup(int * it,pthread_mutex_t * mtx) {
+  int temp;
+  pthread_mutex_lock(mtx);
+  temp = *it ? (*it)++ : 0;
+  pthread_mutex_unlock(mtx);
+  return temp;
+}
 
 void lockAll(void *ptr){
     struct args *args =  ptr;
@@ -114,11 +120,12 @@ void *transaccion(void *ptr)
 			acc2 = rand() % args->bank->num_accounts;
 		}
         pthread_mutex_lock(&args->bank->mutex[acc1]);
-        /*IB: HOLD AND WAIT 
+        //IB: HOLD AND WAIT 
         if (pthread_mutex_trylock(&args->bank->mutex[acc2])){
 		pthread_mutex_unlock(&args->bank->mutex[acc1]);
+        countup(args->iterations,args->itmtx);
 		continue;
-		}*/
+		}
 		amount  = rand() % args->bank->accounts[acc1];
 		printf("Thread %d depositing %d for account %d on account %d\n",
         args->thread_num, amount,acc1, acc2);

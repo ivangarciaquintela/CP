@@ -20,7 +20,7 @@ struct args {
     int	         iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
-   pthread_mutex_t * itmtx;
+    pthread_mutex_t * itmtx;
 };
 
 struct thread_info {
@@ -53,7 +53,7 @@ void unlockAll(void *ptr){
     }
 }
 
-void *balance_total(int it,pthread_mutex_t * mtx,void *ptr){
+void balance_total(int it,pthread_mutex_t * mtx,void *ptr){
     struct args *args =  ptr;
     int i;
     int total=0;
@@ -76,7 +76,7 @@ void *deposit(void *ptr)
     struct args *args =  ptr;
     int amount, account, balance;
 
-    while(args->iterations--) {
+    while(countdown(&args->iterations,args->itmtx)) {
         amount  = rand() % MAX_AMOUNT;
         account = rand() % args->bank->num_accounts;
         
@@ -104,7 +104,7 @@ void *transaccion(void *ptr)
     struct args *args =  ptr;
     int amount, acc1, acc2, balance1, balance2;
 
-    while(args->iterations--) {
+    while(countdown(&args->iterations,args->itmtx)) {
         acc1 = rand() % args->bank->num_accounts;
         while (args->bank->accounts[acc1] < 1){
 			acc1 = rand() % args->bank->num_accounts;
@@ -169,7 +169,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
         printf("Not enough memory\n");
         exit(1);
     }
-    
+    int *global_iters = malloc(sizeof(int));
     if ((bank->mutex= malloc(sizeof(pthread_mutex_t)*(bank->num_accounts)))==NULL){
 		printf("Not enough memory\n");
 		exit(1);
@@ -177,6 +177,8 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
 
 	for(i=0; i<bank->num_accounts; i++)
 		pthread_mutex_init(&bank->mutex[i], NULL);
+
+    *global_iters = opt.iterations;
 
     // Create num_thread threads running deposit
     for (i = 0; i < opt.num_threads; i++) {

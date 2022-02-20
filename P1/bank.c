@@ -100,11 +100,11 @@ void *deposit(void *ptr)
 
 void *transaccion(void *ptr)
 {
-   
     struct args *args =  ptr;
     int amount, acc1, acc2, balance1, balance2;
 
     while(countdown(args->iterations,args->itmtx)) {
+        //printf("%d\n", *args->iterations);
         acc1 = rand() % args->bank->num_accounts;
         while (args->bank->accounts[acc1] < 1){
 			acc1 = rand() % args->bank->num_accounts;
@@ -114,12 +114,11 @@ void *transaccion(void *ptr)
 			acc2 = rand() % args->bank->num_accounts;
 		}
         pthread_mutex_lock(&args->bank->mutex[acc1]);
-        //IB: HOLD AND WAIT 
-       if (pthread_mutex_trylock(&args->bank->mutex[acc2])){
+        /*IB: HOLD AND WAIT 
+        if (pthread_mutex_trylock(&args->bank->mutex[acc2])){
 		pthread_mutex_unlock(&args->bank->mutex[acc1]);
 		continue;
-		}
-		//**//
+		}*/
 		amount  = rand() % args->bank->accounts[acc1];
 		printf("Thread %d depositing %d for account %d on account %d\n",
         args->thread_num, amount,acc1, acc2);

@@ -17,7 +17,7 @@ struct bank {
 struct args {
     int          thread_num;  // application defined thread #
     int          delay;       // delay between operations
-    int	         iterations;  // number of operations
+    int	         *iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
     pthread_mutex_t * itmtx;
@@ -76,7 +76,7 @@ void *deposit(void *ptr)
     struct args *args =  ptr;
     int amount, account, balance;
 
-    while(countdown(&args->iterations,args->itmtx)) {
+    while(countdown(args->iterations,args->itmtx)) {
         amount  = rand() % MAX_AMOUNT;
         account = rand() % args->bank->num_accounts;
         
@@ -104,7 +104,7 @@ void *transaccion(void *ptr)
     struct args *args =  ptr;
     int amount, acc1, acc2, balance1, balance2;
 
-    while(countdown(&args->iterations,args->itmtx)) {
+    while(countdown(args->iterations,args->itmtx)) {
         acc1 = rand() % args->bank->num_accounts;
         while (args->bank->accounts[acc1] < 1){
 			acc1 = rand() % args->bank->num_accounts;
@@ -124,7 +124,7 @@ void *transaccion(void *ptr)
 		printf("Thread %d depositing %d for account %d on account %d\n",
         args->thread_num, amount,acc1, acc2);
 
-        balance_total(args->iterations, args->itmtx,args);
+        balance_total(*args->iterations, args->itmtx,args);
         balance1 = args->bank->accounts[acc1];
      
         if(args->delay) usleep(args->delay); // Force a context switch
@@ -190,7 +190,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *o
 		}
         threads[i].args -> bank       = bank;
         threads[i].args -> delay      = opt.delay;
-        threads[i].args -> iterations = opt.iterations;
+        threads[i].args->iterations = &opt.iterations;
         threads[i].args -> itmtx = gl_it_mtx;
         
 

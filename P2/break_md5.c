@@ -24,11 +24,9 @@ struct args
 
 };
 
-int countup(int * it,pthread_mutex_t * mtx) {
+int countup(long *it) {
   int temp;
-  pthread_mutex_lock(mtx);
-  //temp = (*it)++;       //esto esta mal
-  pthread_mutex_unlock(mtx);
+    temp = (*it)++;     
   return temp;
 }
 
@@ -86,10 +84,7 @@ void hex_to_num(char *str, unsigned char *hex)
         hex[i] = (hex_value(str[i * 2]) << 4) + hex_value(str[i * 2 + 1]);
 }
 
-char *break_pass(unsigned char *md5, void *ptr, pthread_mutex_t * mtx)
-{
-    int j;
-    struct args *args =  ptr;
+char *break_pass(unsigned char *md5, long * count){
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
     long bound = ipow(26, PASS_LEN); // we have passwords of PASS_LEN
@@ -97,7 +92,7 @@ char *break_pass(unsigned char *md5, void *ptr, pthread_mutex_t * mtx)
                                      //     26 ^ PASS_LEN  different cases
 
     for (long i = 0; i < bound; i++)
-    {
+    { 
         long_to_pass(i, pass);
 
         MD5(pass, PASS_LEN, res);
@@ -105,8 +100,7 @@ char *break_pass(unsigned char *md5, void *ptr, pthread_mutex_t * mtx)
         if (0 == memcmp(res, md5, MD5_DIGEST_LENGTH))
             break; // Found it!
         else{
-            j = countup(&args->num_intentos, mtx);
-            printf("%d\r", j);
+            countup(&count);
         }
     }
 
@@ -130,61 +124,47 @@ void progress(int percent){
     }
 }
 
-
-void barra_progreso(/*void *ptr*/)
+void barra_progreso(long *count)
 {
-    //struct args *args = ptr;
-    for (int i = 0; i < 101; i++)
-    {
+    long bound = ipow(26, PASS_LEN);
+    long i=0;
+    while (i<100)    {
+        i=*count/bound;
+        printf("%ld",i);
         progress(i);
-        sleep(1);
     }
 }
 
-struct thread_info *start_threads(void *operacion)
+pthread_t *start_threads(long * count, void *operacion)
 {
-    int i = 0;
-    struct thread_info *threads;
-    threads = malloc(sizeof(struct thread_info));
-    if (threads == NULL)
+    pthread_t *thread;
+    thread = malloc(sizeof(struct thread_info));
+
+    if (0 != pthread_create(thread, NULL, operacion ,count))
     {
-        printf("Not enough memory\n");
+        printf("Could not create thread\n");
         exit(1);
     }
-    if (0 != pthread_create(&threads[i].id, NULL, operacion, threads[i].args))
-    {
-        printf("Could not create thread #%d", i);
-        exit(1);
-    }
-    return threads;
+    return thread;
 }
 
-void freeT(struct thread_info *threads) {
-	pthread_join(threads[0].id, NULL);
-    free(threads[0].args);
-    free(threads);	
-	}
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2)
-    {
+    if (argc < 2)    {
         printf("Use: %s string\n", argv[0]);
         exit(0);
     }
-    struct thread_info *thrs;
-    pthread_mutex_t * mtx = malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(mtx,NULL);
-
-    //thrs->args->num_intentos=0;
-    //thrs->args->mtx = mtx;
-
+    long * count;
+    count=0;
+    pthread_t *thrs;
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
-    thrs = start_threads(barra_progreso);
-    char *pass = break_pass(md5_num, thrs->args, mtx);
+    thrs = start_threads(count, barra_progreso);
+    char *pass = break_pass(md5_num, count);
     printf("%s: %s\n", argv[1], pass);
     free(pass);
-	freeT(thrs);
+    free(count);
+    free(thrs);
     return 0;
 }

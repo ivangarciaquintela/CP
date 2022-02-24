@@ -20,7 +20,17 @@ struct args
 {
     int thread_num; // application defined thread #
     int num_intentos;
+    pthread_mutex_t * mtx;
+
 };
+
+int countup(int * it,pthread_mutex_t * mtx) {
+  int temp;
+  pthread_mutex_lock(mtx);
+  //temp = (*it)++;       //esto esta mal
+  pthread_mutex_unlock(mtx);
+  return temp;
+}
 
 long ipow(long base, int exp)
 {
@@ -76,8 +86,10 @@ void hex_to_num(char *str, unsigned char *hex)
         hex[i] = (hex_value(str[i * 2]) << 4) + hex_value(str[i * 2 + 1]);
 }
 
-char *break_pass(unsigned char *md5)
+char *break_pass(unsigned char *md5, void *ptr, pthread_mutex_t * mtx)
 {
+    int j;
+    struct args *args =  ptr;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
     long bound = ipow(26, PASS_LEN); // we have passwords of PASS_LEN
@@ -92,6 +104,10 @@ char *break_pass(unsigned char *md5)
 
         if (0 == memcmp(res, md5, MD5_DIGEST_LENGTH))
             break; // Found it!
+        else{
+            j = countup(&args->num_intentos, mtx);
+            printf("%d\r", j);
+        }
     }
 
     return (char *)pass;
@@ -113,6 +129,7 @@ void progress(int percent){
         printf("\r");
     }
 }
+
 
 void barra_progreso(/*void *ptr*/)
 {
@@ -156,11 +173,16 @@ int main(int argc, char *argv[])
         exit(0);
     }
     struct thread_info *thrs;
+    pthread_mutex_t * mtx = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(mtx,NULL);
+
+    //thrs->args->num_intentos=0;
+    //thrs->args->mtx = mtx;
+
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
     thrs = start_threads(barra_progreso);
-    //barra_progreso();
-    char *pass = break_pass(md5_num);
+    char *pass = break_pass(md5_num, thrs->args, mtx);
     printf("%s: %s\n", argv[1], pass);
     free(pass);
 	freeT(thrs);

@@ -38,7 +38,7 @@ int countdown(int * it,pthread_mutex_t * mtx) {
 int countup(int * it,pthread_mutex_t * mtx) {
   int temp;
   pthread_mutex_lock(mtx);
-  temp = *it ? (*it)++ : 0;
+  temp = (*it)++;
   pthread_mutex_unlock(mtx);
   return temp;
 }

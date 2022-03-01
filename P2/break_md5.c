@@ -24,10 +24,12 @@ struct args
 
 };
 
-int countup(long *it) {
-  int temp;
-    temp = (*it)++;     
-  return temp;
+int countup(long *it, pthread_mutex_t * mtx) {
+    int temp=0;
+    pthread_mutex_lock(mtx);
+    temp = (*it)++;  
+    pthread_mutex_unlock(mtx);
+    return temp;
 }
 
 long ipow(long base, int exp)
@@ -84,7 +86,7 @@ void hex_to_num(char *str, unsigned char *hex)
         hex[i] = (hex_value(str[i * 2]) << 4) + hex_value(str[i * 2 + 1]);
 }
 
-char *break_pass(unsigned char *md5, long * count){
+char *break_pass(unsigned char *md5, long *count,pthread_mutex_t * mtx){
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
     long bound = ipow(26, PASS_LEN); // we have passwords of PASS_LEN
@@ -100,7 +102,8 @@ char *break_pass(unsigned char *md5, long * count){
         if (0 == memcmp(res, md5, MD5_DIGEST_LENGTH))
             break; // Found it!
         else{
-            countup(&count);
+            countup(count, mtx);
+            //printf("                                   %ld\r", *count);
         }
     }
 
@@ -116,21 +119,15 @@ void progress(int percent){
     for (int i = 0; i < percent / 2; i++) { 
         printf("=");
         }
-    if (percent < 100){
-        printf(">\r");
-    }
-    else{
-        printf("\r");
-    }
 }
 
 void barra_progreso(long *count)
 {
     long bound = ipow(26, PASS_LEN);
-    long i=0;
+    int i=0;
     while (i<100)    {
-        i=*count/bound;
-        printf("%ld",i);
+        i=(*count/bound)*100;
+        printf("%d\r",i);
         progress(i);
     }
 }
@@ -155,16 +152,19 @@ int main(int argc, char *argv[])
         printf("Use: %s string\n", argv[0]);
         exit(0);
     }
-    long * count;
-    count=0;
+    long *pcount;
+    long count=0;
+    pcount=&count;
     pthread_t *thrs;
+    pthread_mutex_t * mtx = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(mtx,NULL);
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
-    thrs = start_threads(count, barra_progreso);
-    char *pass = break_pass(md5_num, count);
+    thrs = start_threads(pcount, barra_progreso);
+    char *pass = break_pass(md5_num, pcount, mtx);
     printf("%s: %s\n", argv[1], pass);
     free(pass);
-    free(count);
-    free(thrs);
+    //free(pcount);
+    //free(thrs);
     return 0;
 }

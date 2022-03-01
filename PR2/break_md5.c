@@ -73,11 +73,7 @@ void hex_to_num(char *str, unsigned char *hex) {
 void *barra_progreso(void *ptr)
 {
     struct args *args = ptr;
-    char *progress ="";
-    for (int i = 0; i< args->percent; i++){
-     progress = progress+".";
-    }
-    printf("%d % %s \r", args->percent, progress);
+    printf("%d % \r", args->percent);
     
     
     return NULL;

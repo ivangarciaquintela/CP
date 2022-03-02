@@ -23,10 +23,18 @@ struct args
     char *pass;
     unsigned char *md5;
     long *count;
+    long *prob;
     long bound;
     double timesys;
 
 
+};
+
+struct opt
+{
+    unsigned char *md5;
+    long *count;
+    long *prob;
 };
 
 double tiempo(){
@@ -37,11 +45,6 @@ double tiempo(){
     return (t.tv_sec);
 }
 
-struct opt
-{
-    unsigned char *md5;
-    long *count;
-};
 
 long ipow(long base, int exp){
     long res = 1;
@@ -99,7 +102,9 @@ void *barra_progreso(void *ptr){
     for (int i = 0; i < percent / 2; i++) { 
         printf("=");
        }
-    printf("%d %% (%ld/%ld)\r", percent, (*args->count),bound);
+    //printf("%d %% (%ld/%ld)\r", percent, (*args->count),bound);
+    printf("%d %% (%ld)\r", percent, (*args->prob));
+    (*args->prob) = 0;
     fflush(stdout);
     return NULL;
 }
@@ -109,7 +114,6 @@ void *break_pass(void * ptr) {
     unsigned char *md5 = args->md5;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
-    
     long bound = args->bound;  // we have passwords of PASS_LEN
                                      // lowercase chars =>
                                     //     26 ^ PASS_LEN  different cases
@@ -127,6 +131,7 @@ void *break_pass(void * ptr) {
         else{
             pthread_mutex_lock(args->mtx);
             (*args->count)= i;
+            (*args->prob)++;
             pthread_mutex_unlock(args->mtx);
         }
     }
@@ -171,9 +176,11 @@ struct thread_info *start_threads(void *operacion, void *ptr){
     threads->args->md5 = opt->md5;
     threads->args->mtx = gl_it_mtx;
     threads->args->count = opt->count;
+    threads->args->prob = opt->prob;
     threads->args->bound = ipow(26, PASS_LEN);
     double t = tiempo();
     threads->args->timesys = t;
+
 
     
     if (0 != pthread_create(&(*threads).id, NULL, operacion ,threads->args))
@@ -196,11 +203,12 @@ int main(int argc, char *argv[]) {
 
     opt = malloc(sizeof(struct opt));
     long c =0;
-   
+    long prob =0;
    
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
      opt->count = &c;
+     opt->prob = &prob;
      opt->md5 = md5_num;
 
     thrs = start_threads(progreso, opt);

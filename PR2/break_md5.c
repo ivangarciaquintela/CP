@@ -9,6 +9,8 @@
 
 
 #define PASS_LEN 6
+#define N_THREAD 5
+#define BOUND ipow(26, PASS_LEN);
 
 struct thread_info
 {
@@ -163,31 +165,56 @@ struct thread_info *start_threads(void *operacion, void *ptr){
     struct thread_info *threads;
     struct opt *opt = ptr;
 
+
+    if(operacion!=progreso){
+        threads = malloc(sizeof(struct thread_info)* N_THREAD);
+        for(long i = 0;i<N_THREAD;i++)
+        {
+            pthread_mutex_t * gl_it_mtx = malloc(sizeof(pthread_mutex_t));
+              pthread_mutex_init(gl_it_mtx,NULL);
+    
+            threads[i].args = malloc(sizeof(struct args));
+            threads[i].args->md5 = opt->md5;
+            threads[i].args->mtx = gl_it_mtx;
+            threads[i].args->count = opt->count;
+            threads[i].args->prob = opt->prob;
+            threads[i].args->bound = BOUND;
+            
+            if (0 != pthread_create(&threads[i].id, NULL, operacion ,threads->args))
+            {
+                printf("Could not create thread\n");
+                exit(1);
+            }
+        }
+                
+    }
+    else{
     threads = malloc(sizeof(struct thread_info));
 
-    if (threads == NULL) {
-        printf("Not enough memory\n");
-        exit(1);
-    }
-    pthread_mutex_t * gl_it_mtx = malloc(sizeof(pthread_mutex_t));
-      pthread_mutex_init(gl_it_mtx,NULL);
+        if (threads == NULL) {
+            printf("Not enough memory\n");
+            exit(1);
+        }
+        pthread_mutex_t * gl_it_mtx = malloc(sizeof(pthread_mutex_t));
+          pthread_mutex_init(gl_it_mtx,NULL);
     
-    threads->args = malloc(sizeof(struct args));
-    threads->args->md5 = opt->md5;
-    threads->args->mtx = gl_it_mtx;
-    threads->args->count = opt->count;
-    threads->args->prob = opt->prob;
-    threads->args->bound = ipow(26, PASS_LEN);
-    double t = tiempo();
-    threads->args->timesys = t;
-
-
-    
-    if (0 != pthread_create(&(*threads).id, NULL, operacion ,threads->args))
-    {
-        printf("Could not create thread\n");
-        exit(1);
+        threads->args = malloc(sizeof(struct args));
+        threads->args->md5 = opt->md5;
+        threads->args->mtx = gl_it_mtx;
+        threads->args->count = opt->count;
+        threads->args->prob = opt->prob;
+        threads->args->bound = BOUND;
+        double t = tiempo();
+        threads->args->timesys = t;
+        
+        if (0 != pthread_create(&threads[i].id, NULL, operacion ,threads->args))
+        {
+            printf("Could not create thread\n");
+            exit(1);
+        }
     }
+    
+    
     return threads;
 }
 

@@ -9,8 +9,8 @@
 
 
 #define PASS_LEN 6
-#define N_THREAD 5
-#define BOUND ipow(26, PASS_LEN);
+#define N_THREAD 25
+#define BOUND ipow(26, PASS_LEN)
 
 struct thread_info
 {
@@ -26,7 +26,7 @@ struct args
     unsigned char *md5;
     long *count;
     long *prob;
-    long bound;
+    long *ini;
     double timesys;
 
 
@@ -37,6 +37,7 @@ struct opt
     unsigned char *md5;
     long *count;
     long *prob;
+    long *ini;
 };
 
 double tiempo(){
@@ -99,8 +100,7 @@ void hex_to_num(char *str, unsigned char *hex) {
 
 void *barra_progreso(void *ptr){
     struct args *args = ptr;
-    long bound = args->bound; 
-    int percent = ((*args->count)*100)/bound;
+    int percent = ((*args->count)*100)/BOUND;
     for (int i = 0; i < percent / 2; i++) { 
         printf("=");
        }
@@ -116,36 +116,36 @@ void *break_pass(void * ptr) {
     unsigned char *md5 = args->md5;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
-    long bound = args->bound;  // we have passwords of PASS_LEN
-                                     // lowercase chars =>
-                                    //     26 ^ PASS_LEN  different cases
-    for(long i=0; i < bound; i++) {
-        long_to_pass(i, pass);
+    long i = 0;
+    while((*args->count)<BOUND){
+        i+=N_THREAD;
+        long j = i*(args->thread_num+1);
+        long_to_pass(j, pass);
 
         MD5(pass, PASS_LEN, res);
-
+pthread_mutex_lock(args->mtx);
         if(0 == memcmp(res, md5, MD5_DIGEST_LENGTH)) {
-            pthread_mutex_lock(args->mtx);
-            (*args-> count) = bound;
-            pthread_mutex_unlock(args->mtx);
+            (*args-> count) = BOUND;
+             args->pass = (char *)pass;
             break; // Found it!
         }   
         else{
-            pthread_mutex_lock(args->mtx);
-            (*args->count)= i;
+            
+            (*args->count)++;
             (*args->prob)++;
-            pthread_mutex_unlock(args->mtx);
+           
         }
+ pthread_mutex_unlock(args->mtx);
     }
-    args->pass = (char *)pass;
+
     return NULL;
 }
 
 void *progreso (void * ptr) {
     struct args *args = ptr;
-    long bound = args->bound; 
+    
 
-    while((*args->count)!=bound){
+    while((*args->count)!=BOUND){
         double tn = tiempo();
         if(tn!=args->timesys){     
             args-> timesys = tn;
@@ -178,7 +178,7 @@ struct thread_info *start_threads(void *operacion, void *ptr){
             threads[i].args->mtx = gl_it_mtx;
             threads[i].args->count = opt->count;
             threads[i].args->prob = opt->prob;
-            threads[i].args->bound = BOUND;
+            threads[i].args->ini = opt->ini;
             
             if (0 != pthread_create(&threads[i].id, NULL, operacion ,threads->args))
             {
@@ -189,7 +189,7 @@ struct thread_info *start_threads(void *operacion, void *ptr){
                 
     }
     else{
-    threads = malloc(sizeof(struct thread_info));
+        threads = malloc(sizeof(struct thread_info));
 
         if (threads == NULL) {
             printf("Not enough memory\n");
@@ -203,11 +203,10 @@ struct thread_info *start_threads(void *operacion, void *ptr){
         threads->args->mtx = gl_it_mtx;
         threads->args->count = opt->count;
         threads->args->prob = opt->prob;
-        threads->args->bound = BOUND;
         double t = tiempo();
         threads->args->timesys = t;
         
-        if (0 != pthread_create(&threads[i].id, NULL, operacion ,threads->args))
+        if (0 != pthread_create(&threads->id, NULL, operacion ,threads->args))
         {
             printf("Could not create thread\n");
             exit(1);
@@ -217,9 +216,16 @@ struct thread_info *start_threads(void *operacion, void *ptr){
     
     return threads;
 }
+void waitT(struct thread_info *threads) {
+    // Wait for the threads to finish
+    for (int i = 0; i < N_THREAD; i++)
+        pthread_join(threads[i].id, NULL);
+
+}
 
 int main(int argc, char *argv[]) {
     struct thread_info *thrs;
+    struct thread_info *prg;
     struct opt *opt;
 
 
@@ -231,17 +237,19 @@ int main(int argc, char *argv[]) {
     opt = malloc(sizeof(struct opt));
     long c =0;
     long prob =0;
+    long ini = 0;
    
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
      opt->count = &c;
+     opt->ini = &ini;
      opt->prob = &prob;
      opt->md5 = md5_num;
 
-    thrs = start_threads(progreso, opt);
+    prg = start_threads(progreso, opt);
     thrs = start_threads(break_pass, opt);
-
-    pthread_join(thrs->id, NULL);
+    waitT(thrs);
+    pthread_join(prg->id,NULL);
     printf("\n");
     printf("%s: %s\n", argv[1], thrs->args->pass);
     free(thrs);

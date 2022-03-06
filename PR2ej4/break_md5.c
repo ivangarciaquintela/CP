@@ -141,50 +141,53 @@ void *break_pass(void *ptr)
     // unsigned char hex_res[MD5_DIGEST_LENGTH * 2 + 1];
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
-    long i = 0;
+    long i, q = 0;
     int g;
     while ((*args->count) < BOUND)
     {
         pthread_mutex_lock(args->mtx);
-        (*args->ini)++;
         i = (*args->ini);
-        ;
+        (*args->ini) = (*args->ini) + 100;
+        q = (*args->ini) = (*args->ini);
         pthread_mutex_unlock(args->mtx);
-        long_to_pass(i, pass);
-        MD5(pass, PASS_LEN, res);
-        pthread_mutex_lock(args->mtx);
-        // if((*args->found)<(*args->nhashes)){
-        if ((*args->nhashes) > 0)
+        while (i != q)
         {
-            (*args->count)++;
-            (*args->prob)++;
-
-            for (g = 0; g < (*args->nhashes); g++)
+            long_to_pass(i, pass);
+            MD5(pass, PASS_LEN, res);
+            pthread_mutex_lock(args->mtx);
+            if ((*args->nhashes) > 0)
             {
-                if (0 == memcmp(res, md5[g], MD5_DIGEST_LENGTH)) //aqui no m encuentra
+                (*args->count)++;
+                (*args->prob)++;
+
+                for (g = 0; g < (*args->nhashes); g++)
                 {
-                    for (int j = g; j < ((*args->nhashes) - 1); j++)
+                    if (0 == memcmp(res, md5[g], MD5_DIGEST_LENGTH)) // aqui no m encuentra
                     {
-                        aux = args->md5[j];
-                        args->md5[j] = args->md5[j + 1];
-                        args->md5[j + 1] = aux;
+                        for (int j = g; j < ((*args->nhashes) - 1); j++)
+                        {
+                            aux = args->md5[j];
+                            args->md5[j] = args->md5[j + 1];
+                            args->md5[j + 1] = aux;
+                        }
+                        (*args->nhashes) = (*args->nhashes) - 1;
+                        barra_progreso(args);
+                        printf("\n\r%s\n%ld hashes left\n", (char *)pass, (*args->nhashes));
+                        pthread_mutex_unlock(args->mtx);
+                        break; // Found it!
                     }
-                    (*args->nhashes) = (*args->nhashes) - 1;
-                    barra_progreso(args);
-                    printf("\n\r%s\n%ld hashes left\n", (char *)pass, (*args->nhashes));
-                    pthread_mutex_unlock(args->mtx);
-                    break; // Found it!
-                }
-                else
-                {
-                    pthread_mutex_unlock(args->mtx);
+                    else
+                    {
+                        pthread_mutex_unlock(args->mtx);
+                    }
                 }
             }
-        }
-        else
-        {
-            pthread_mutex_unlock(args->mtx);
-            break;
+            else
+            {
+                pthread_mutex_unlock(args->mtx);
+                break;
+            }
+            i++;
         }
     }
 
@@ -231,10 +234,6 @@ struct thread_info *start_threads(void *operacion, void *ptr)
         threads[i].args->ini = opt->ini;
         threads[i].args->nhashes = opt->nhashes;
         threads[i].args->thread_num = i;
-        for (int j = 0; j < (*opt->nhashes); j++)
-        {
-            threads[i].args->md5 = opt->md5;
-        }
 
         if (i < N_THREAD)
         {

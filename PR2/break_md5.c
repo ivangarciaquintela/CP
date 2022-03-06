@@ -142,24 +142,22 @@ void *break_pass(void *ptr)
     unsigned char *md5 = args->md5;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
-    long i= 0;
+    long i,q= 0;
     while((*args-> count)<BOUND){
         pthread_mutex_lock(args->mtx);
-        (*args->ini)++;
         i = (*args->ini);;
+        (*args->ini)= (*args->ini)+100;
+        q=(*args->ini)= (*args->ini);
         pthread_mutex_unlock(args->mtx);
+        while (i != q)
+        {
         long_to_pass(i, pass);
-
         MD5(pass, PASS_LEN, res);
         pthread_mutex_lock(args->mtx);
-        //if((*args->found)<(*args->nhashes)){
         if((*args->nhashes)>0){
             (*args->count)++;
             (*args->prob)++;
             if(0 == memcmp(res, md5, MD5_DIGEST_LENGTH)) {
-                //args->pass = (char *)pass;
-                //(*args->found) =(*args->found)+ 1;
-                //(*args-> count) = BOUND;
                 (*args->nhashes)=(*args->nhashes)-1;
                 barra_progreso(args);
                 printf("\n\r%s\n%ld hashes left\n", (char *)pass, (*args->nhashes));
@@ -171,6 +169,8 @@ void *break_pass(void *ptr)
         }else{
             pthread_mutex_unlock(args->mtx);
             break;
+        }
+        i++;
         }
     }
 

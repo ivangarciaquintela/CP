@@ -28,6 +28,7 @@ struct args
     unsigned char *md5;
     long *count;
     long *prob;
+    long *ini;
     long *found;
     double timesys;
 };
@@ -38,6 +39,7 @@ struct opt
     long *count;
     long *prob;
     long *found;
+    long *ini;
     pthread_mutex_t *mtx;
 
 };
@@ -133,7 +135,12 @@ void *break_pass(void *ptr)
     unsigned char *md5 = args->md5;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
-    for(long i = args->thread_num; i<BOUND;i +=N_THREAD){
+    long i= 0;
+    while((*args-> count)<BOUND){
+        pthread_mutex_lock(args->mtx);
+        (*args->ini)++;
+        i = (*args->ini);;
+        pthread_mutex_unlock(args->mtx);
         long_to_pass(i, pass);
 
         MD5(pass, PASS_LEN, res);
@@ -200,6 +207,7 @@ struct thread_info *start_threads(void *operacion, void *ptr)
             threads[i].args->count = opt->count;
             threads[i].args->prob = opt->prob;
             threads[i].args->found = opt->found;
+            threads[i].args->ini = opt->ini;
             threads[i].args->thread_num = i;
 
             if(i<N_THREAD){
@@ -226,10 +234,12 @@ void waitT(struct thread_info *threads)
         pthread_join(threads[i].id, NULL);
 }
 
+
+
 int main(int argc, char *argv[])
 {
     struct thread_info *thrs=malloc(sizeof(pthread_t)*N_THREAD+1);
-    struct opt *opt;
+    struct opt *opt = malloc(sizeof(struct opt));
 
 
 
@@ -238,17 +248,18 @@ int main(int argc, char *argv[])
         printf("Use: %s string\n", argv[0]);
         exit(0);
     }
-
-    opt = malloc(sizeof(struct opt));
+   
     long c = 0;
-    long prob = 0;
-    long found = 0;
+    long p = 0;
+    long f = 0;
+    long ini = 0;
 
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
     opt->count = &c;
-    opt->found = &found;
-    opt->prob = &prob;
+    opt->found =&f;
+    opt->prob = &p;
+    opt->ini = &ini;
     opt->md5 = md5_num;
 
     thrs = start_threads(break_pass, opt);

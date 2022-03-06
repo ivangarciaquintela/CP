@@ -155,7 +155,7 @@ void *progreso(void *ptr)
 {
     struct args *args = ptr;
 
-    while ((*args->count) != BOUND)
+    while ((*args->count) < BOUND)
     {
         double tn = tiempo();
         if (tn != args->timesys)
@@ -166,6 +166,10 @@ void *progreso(void *ptr)
             pthread_mutex_unlock(args->mtx);
         }
     }
+    pthread_mutex_lock(args->mtx);
+    (*args->count)=BOUND;
+    barra_progreso(args);
+    pthread_mutex_unlock(args->mtx);
     return NULL;
 }
 
@@ -241,6 +245,7 @@ int main(int argc, char *argv[])
 
     thrs = start_threads(break_pass, opt);
     waitT(thrs);
+    printf("\n");
     for (int i = 0; i < N_THREAD; ++i)
     {
         if(thrs[i].args->pass!=NULL)

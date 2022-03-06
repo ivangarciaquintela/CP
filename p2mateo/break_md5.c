@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <signal.h>
+
 
 #define PASS_LEN 6
 #define N_THREAD 25
@@ -142,7 +144,9 @@ void *break_pass(void *ptr)
                 pthread_mutex_lock(args->mtx);
                 (*args->count) = BOUND;
                 args->pass = (char *)pass;
-                printf("%s", args->pass);
+                printf("\nresultado= %s", args->pass);
+                fflush(stdout);
+
                 pthread_mutex_unlock(args->mtx);
                 break; // Found it!
             }
@@ -175,9 +179,6 @@ void *progreso(void *ptr)
             pthread_mutex_unlock(args->mtx);
         }
     }
-    pthread_mutex_lock(args->mtx);
-    barra_progreso(args);
-    pthread_mutex_unlock(args->mtx);
     return NULL;
 }
 
@@ -217,12 +218,10 @@ struct thread_info *start_threads(void *operacion, void *ptr)
             printf("Not enough memory\n");
             exit(1);
         }
-        pthread_mutex_t *gl_it_mtx = malloc(sizeof(pthread_mutex_t));
-        pthread_mutex_init(gl_it_mtx, NULL);
 
         threads->args = malloc(sizeof(struct args));
         threads->args->md5 = opt->md5;
-        threads->args->mtx = gl_it_mtx;
+        threads->args->mtx = opt->mtx;
         threads->args->count = opt->count;
         threads->args->prob = opt->prob;
         double t = tiempo();
@@ -245,8 +244,8 @@ void waitT(struct thread_info *threads)
 
 int main(int argc, char *argv[])
 {
-    struct thread_info *thrs;
-    struct thread_info *prg;
+    struct thread_info *thrs=malloc(sizeof(pthread_t)*N_THREAD);
+    struct thread_info *prg=malloc(sizeof(pthread_t));
     struct opt *opt;
 
     pthread_mutex_t *gl_it_mtx = malloc(sizeof(pthread_mutex_t));
@@ -275,10 +274,9 @@ int main(int argc, char *argv[])
     prg = start_threads(progreso, opt);
     thrs = start_threads(break_pass, opt);
     waitT(thrs);
-    pthread_join(prg->id, NULL);
-    printf("\n");
-    printf("%s: %s\n", argv[1], thrs->args->pass);
+
     free(thrs);
+    free(prg);
     pthread_mutex_destroy(gl_it_mtx);
     return 0;
 }

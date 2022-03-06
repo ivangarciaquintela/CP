@@ -97,7 +97,6 @@ void hex_to_num(char *str, unsigned char *hex) {
 }
 
 
-
 void *barra_progreso(void *ptr){
     struct args *args = ptr;
     int percent = ((*args->count)*100)/BOUND;
@@ -123,7 +122,7 @@ void *break_pass(void * ptr) {
         long_to_pass(j, pass);
 
         MD5(pass, PASS_LEN, res);
-pthread_mutex_lock(args->mtx);
+        pthread_mutex_lock(args->mtx);
         if(0 == memcmp(res, md5, MD5_DIGEST_LENGTH)) {
             (*args-> count) = BOUND;
              args->pass = (char *)pass;

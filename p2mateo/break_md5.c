@@ -36,6 +36,8 @@ struct opt
     long *count;
     long *prob;
     long *ini;
+    pthread_mutex_t *mtx;
+
 };
 
 double tiempo()
@@ -127,7 +129,7 @@ void *break_pass(void *ptr)
     {
         pthread_mutex_lock(args->mtx);
         i = (*args->ini);
-        (*args->ini) = (*args->ini) + 2000;
+        (*args->ini) = (*args->ini) + 200;
         j= (*args->ini);
         pthread_mutex_unlock(args->mtx); 
         while (i != j)
@@ -184,9 +186,7 @@ struct thread_info *start_threads(void *operacion, void *ptr)
 
     struct thread_info *threads;
     struct opt *opt = ptr;
-    pthread_mutex_t *gl_it_mtx = malloc(sizeof(pthread_mutex_t));
 
-    pthread_mutex_init(gl_it_mtx, NULL);
 
     if (operacion != progreso)
     {
@@ -195,7 +195,7 @@ struct thread_info *start_threads(void *operacion, void *ptr)
         {
             threads[i].args = malloc(sizeof(struct args));
             threads[i].args->md5 = opt->md5;
-            threads[i].args->mtx = gl_it_mtx;
+            threads[i].args->mtx = opt->mtx;
             threads[i].args->count = opt->count;
             threads[i].args->prob = opt->prob;
             threads[i].args->ini = opt->ini;
@@ -249,6 +249,10 @@ int main(int argc, char *argv[])
     struct thread_info *prg;
     struct opt *opt;
 
+    pthread_mutex_t *gl_it_mtx = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(gl_it_mtx, NULL);
+
+
     if (argc < 2)
     {
         printf("Use: %s string\n", argv[0]);
@@ -266,6 +270,7 @@ int main(int argc, char *argv[])
     opt->ini = &ini;
     opt->prob = &prob;
     opt->md5 = md5_num;
+    opt->mtx = gl_it_mtx;
 
     prg = start_threads(progreso, opt);
     thrs = start_threads(break_pass, opt);
@@ -274,5 +279,6 @@ int main(int argc, char *argv[])
     printf("\n");
     printf("%s: %s\n", argv[1], thrs->args->pass);
     free(thrs);
+    pthread_mutex_destroy(gl_it_mtx);
     return 0;
 }

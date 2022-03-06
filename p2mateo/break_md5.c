@@ -9,7 +9,7 @@
 
 
 #define PASS_LEN 6
-#define N_THREAD 100
+#define N_THREAD 5
 #define BOUND ipow(26, PASS_LEN)
 
 struct thread_info
@@ -24,11 +24,12 @@ struct args
     pthread_mutex_t *mtx;
 
     char *pass;
-    unsigned char *md5;
+    unsigned char **md5;
     long *count;
     long *prob;
     long *ini;
     double timesys;
+    int *nhashes;
 };
 
 struct opt
@@ -37,6 +38,7 @@ struct opt
     long *count;
     long *prob;
     long *ini;
+    int*nhashes;
     pthread_mutex_t *mtx;
 
 };
@@ -122,42 +124,56 @@ void *barra_progreso(void *ptr)
 void *break_pass(void *ptr)
 {
     struct args *args = ptr;
-    unsigned char *md5 = args->md5;
+    unsigned char **md5 = args->md5;
     unsigned char res[MD5_DIGEST_LENGTH];
     unsigned char *pass = malloc((PASS_LEN + 1) * sizeof(char));
+    unsigned char *aux;
+
     long i, j=0;
     while ((*args->ini) < BOUND)
     {
         pthread_mutex_lock(args->mtx);
-        i = (*args->ini);
-        (*args->ini) = (*args->ini) + 200;
-        j= (*args->ini);
-        pthread_mutex_unlock(args->mtx); 
-        while (i != j)
-        {
+        if((*args->nhashes)>0){
+            i = (*args->ini);
+            (*args->ini) = (*args->ini) + 200;
+            j= (*args->ini);
+            pthread_mutex_unlock(args->mtx); 
+            while (i != j)
+            {
             //printf("i=%ld, j=%ld,ini=%ld thread=%d\n", i, j,  (*args->ini), args->thread_num) ;
             long_to_pass(i, pass);
             MD5(pass, PASS_LEN, res);
-            if (0 == memcmp(res, md5, MD5_DIGEST_LENGTH))
-            {
-                pthread_mutex_lock(args->mtx);
-                (*args->count) = BOUND;
-                args->pass = (char *)pass;
-                printf("\nresultado= %s", args->pass);
-                fflush(stdout);
+            for (int y = 0; y < (*args->nhashes); y++) {
+                if (0 == memcmp(res, md5[y], MD5_DIGEST_LENGTH))
+                {
+                    pthread_mutex_lock(args->mtx);
+                    for (int p = y; p < ((*args->nhashes) - 1); p++)
+                    {
+                        aux = args->md5[p];     
+                        args->md5[p] = args->md5[p + 1];
+                        args->md5[p + 1] = aux;
+                    }
+                    (*args->nhashes)--;
+                    (*args->count) = BOUND;
+                    args->pass = (char *)pass;
+                    printf("\nresultado= %s\n", args->pass);
+                    //exit(1);
+                    pthread_mutex_unlock(args->mtx);
+                    break; // Found it!
+                }
+                else
+                {
+                    pthread_mutex_lock(args->mtx);
+                    (*args->count)++;
+                    (*args->prob)++;
+                    pthread_mutex_unlock(args->mtx);
+                }
+                i++;
+            }
 
-                pthread_mutex_unlock(args->mtx);
-                break; // Found it!
-            }
-            else
-            {
-                pthread_mutex_lock(args->mtx);
-                (*args->count)++;
-                (*args->prob)++;
-                pthread_mutex_unlock(args->mtx);
-            }
-            i++;
         }
+        }
+
     }
 
     return NULL;
@@ -194,12 +210,14 @@ struct thread_info *start_threads(void *operacion, void *ptr)
         for (int i = 0; i < N_THREAD; i++)
         {
             threads[i].args = malloc(sizeof(struct args));
-            threads[i].args->md5 = opt->md5;
+            threads[i].args->md5 = &opt->md5;
             threads[i].args->mtx = opt->mtx;
             threads[i].args->count = opt->count;
             threads[i].args->prob = opt->prob;
             threads[i].args->ini = opt->ini;
             threads[i].args->thread_num = i;
+            threads[i].args->nhashes = opt->nhashes;
+
 
             if (0 != pthread_create(&threads[i].id, NULL, operacion, threads[i].args))
             {
@@ -219,7 +237,7 @@ struct thread_info *start_threads(void *operacion, void *ptr)
         }
 
         threads->args = malloc(sizeof(struct args));
-        threads->args->md5 = opt->md5;
+        threads->args->md5 = &opt->md5;
         threads->args->mtx = opt->mtx;
         threads->args->count = opt->count;
         threads->args->prob = opt->prob;
@@ -246,6 +264,7 @@ int main(int argc, char *argv[])
     struct thread_info *thrs=malloc(sizeof(pthread_t)*N_THREAD);
     struct thread_info *prg=malloc(sizeof(pthread_t));
     struct opt *opt;
+    unsigned char md5_num[MD5_DIGEST_LENGTH];
 
     pthread_mutex_t *gl_it_mtx = malloc(sizeof(pthread_mutex_t));
     pthread_mutex_init(gl_it_mtx, NULL);
@@ -261,19 +280,27 @@ int main(int argc, char *argv[])
     long c = 0;
     long prob = 0;
     long ini = 0;
+    int nhashes=argc;
+    opt->md5 = malloc(sizeof(char*) * nhashes);
 
-    unsigned char md5_num[MD5_DIGEST_LENGTH];
-    hex_to_num(argv[1], md5_num);
     opt->count = &c;
     opt->ini = &ini;
     opt->prob = &prob;
-    opt->md5 = md5_num;
     opt->mtx = gl_it_mtx;
+    opt->nhashes = &nhashes;
+    for (int i = 0; i < nhashes; i++){
+            hex_to_num(argv[i], md5_num);
+            opt->md5[i] = md5_num[i + 1];
+    }
 
     prg = start_threads(progreso, opt);
     thrs = start_threads(break_pass, opt);
     waitT(thrs);
-
+    for (int i = 0; i < N_THREAD; ++i)
+    {
+        if (thrs[i].args->pass != NULL)
+            printf("%s: %s\n", argv[1], thrs[i].args->pass);
+    }
     free(thrs);
     free(prg);
     pthread_mutex_destroy(gl_it_mtx);

@@ -10,7 +10,7 @@
 
 
 #define PASS_LEN 6
-#define N_THREAD 25
+#define N_THREAD 5
 #define BOUND ipow(26, PASS_LEN)
 
 struct thread_info
@@ -30,6 +30,7 @@ struct args
     long *prob;
     long *ini;
     long *found;
+    long *nhashes;
     double timesys;
 };
 
@@ -39,6 +40,7 @@ struct opt
     long *count;
     long *prob;
     long *found;
+    long *nhashes;
     long *ini;
     pthread_mutex_t *mtx;
 
@@ -208,6 +210,7 @@ struct thread_info *start_threads(void *operacion, void *ptr)
             threads[i].args->prob = opt->prob;
             threads[i].args->found = opt->found;
             threads[i].args->ini = opt->ini;
+            threads[i].args->nhashes = opt->nhashes;
             threads[i].args->thread_num = i;
 
             if(i<N_THREAD){
@@ -253,6 +256,8 @@ int main(int argc, char *argv[])
     long p = 0;
     long f = 0;
     long ini = 0;
+    long nhashes=argc-1;
+    printf("%ld\n",nhashes);
 
     unsigned char md5_num[MD5_DIGEST_LENGTH];
     hex_to_num(argv[1], md5_num);
@@ -260,6 +265,7 @@ int main(int argc, char *argv[])
     opt->found =&f;
     opt->prob = &p;
     opt->ini = &ini;
+    opt->nhashes= &nhashes;
     opt->md5 = md5_num;
 
     thrs = start_threads(break_pass, opt);

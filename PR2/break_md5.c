@@ -223,8 +223,6 @@ int main(int argc, char *argv[])
     struct thread_info *thrs=malloc(sizeof(pthread_t)*N_THREAD+1);
     struct opt *opt;
 
-
-
     if (argc < 2)
     {
         printf("Use: %s string\n", argv[0]);

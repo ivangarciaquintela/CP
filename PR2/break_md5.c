@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-#include <signal.h>
+
 
 
 #define PASS_LEN 6

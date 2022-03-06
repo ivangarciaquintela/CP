@@ -147,13 +147,15 @@ void *break_pass(void *ptr)
 
         MD5(pass, PASS_LEN, res);
         pthread_mutex_lock(args->mtx);
-        if((*args->found)<1){
+        //if((*args->found)<(*args->nhashes)){
+        if((*args->nhashes)!=0){
             (*args->count)++;
             (*args->prob)++;
             if(0 == memcmp(res, md5, MD5_DIGEST_LENGTH)) {
                 args->pass = (char *)pass;
-                (*args->found) = 1;
+                (*args->found) =(*args->found)+ 1;
                 (*args-> count) = BOUND;
+                (*args->nhashes)=(*args->nhashes)-1;
                 pthread_mutex_unlock(args->mtx);
                 break; // Found it!
             }else{

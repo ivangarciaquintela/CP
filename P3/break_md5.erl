@@ -4,14 +4,13 @@
 -define(BAR_SIZE, 40).
 -define(MAX_PROCS, 5).
 
--export([create_procs/7]).
+-export([create_procedures/7]).
 
 -export([break_md5/5]).
 -export([break_md5s/1,
 		break_md5/1,
 		pass_to_num/1, 
-		num_to_pass/1]
-        ]).
+		num_to_pass/1 ]).
 
 -export([progress_loop/2]).
 

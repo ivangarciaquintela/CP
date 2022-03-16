@@ -12,7 +12,7 @@
 		pass_to_num/1, 
 		num_to_pass/1 ]).
 
--export([progress_loop/2]).
+-export([progress_loop/5]).
 
 % Base ^ Exp
 
@@ -60,7 +60,7 @@ hex_string_to_num(Hex) -> hex_string_to_num_aux(Hex, 0).
 
 %% Progress bar runs in its own process
 
-progress_loop(N, Bound) ->
+progress_loop(N, Bound, T1, Sum, New) ->
     receive
          {stop, Pid} ->
             io:fwrite("\n"),
@@ -73,8 +73,17 @@ progress_loop(N, Bound) ->
             Full_N = N2 * ?BAR_SIZE div Bound,
             Full = lists:duplicate(Full_N, $=),
             Empty = lists:duplicate(?BAR_SIZE - Full_N, $-),
-            io:format("\r[~s~s] ~.2f%", [Full, Empty, N2/Bound*100]),
-            progress_loop(N2, Bound)
+			T2 = erlang:monotonic_time(seconds),
+			if 
+                T1==T2 ->
+					Summ=Sum,
+                    Neww=New+Checked;
+                true ->
+                    Summ=New,
+					Neww=0
+                end,
+            io:format("\r[~s~s] ~.2f% (~p)", [Full, Empty, N2/Bound*100, Summ]),
+            progress_loop(N2, Bound, T2, Summ, Neww)
     end.
 
 %% break_md5/2 iterates checking the possible passwords
@@ -143,7 +152,7 @@ create_procedures(N,Num_Hashes,Iter,Bound,Progress_Pid,Z,List_Pid)->
 break_md5s(Hashes) ->
     List_Pid = [],
     Bound = pow(26, ?PASS_LEN),
-    Progress_Pid = spawn(?MODULE, progress_loop, [0, Bound]),
+    Progress_Pid = spawn(?MODULE, progress_loop, [0, Bound, 0, 0, 0]),
     Num_Hashes = lists:map(fun hex_string_to_num/1, Hashes),
     Res = create_procedures(?MAX_PROCS, Num_Hashes, 0, Bound, Progress_Pid, 1, List_Pid),
     %%Progress_Pid ! stop,
@@ -152,5 +161,3 @@ break_md5s(Hashes) ->
 %% Break a single hash
 
 break_md5(Hash) -> break_md5s([Hash]).
-
-

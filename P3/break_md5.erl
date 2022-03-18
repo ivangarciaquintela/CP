@@ -63,7 +63,7 @@ hex_string_to_num(Hex) -> hex_string_to_num_aux(Hex, 0).
 progress_loop(N, Bound, T1, Sum, New) ->
     receive
          {stop, Pid} ->
-            io:fwrite("\n"),
+            io:fwrite("\r    									 \r"),
             Pid ! stop;
         {stop_hashes, Target_Hashes, Pid} ->
             Pid ! {stop_hashes, Target_Hashes},

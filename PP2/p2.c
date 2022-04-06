@@ -3,15 +3,44 @@
 #include <math.h>
 #include <mpi.h>
 
-int main(int argc, char *argv[])
-{
-    int i, done = 0, n, count, ccount, rank, size;
-    double PI25DT = 3.141592653589793238462643;
-    double pi, x, y, z;
+int MPI_BinomialColectiva(){
+    
+}
 
-    MPI_Init(NULL, NULL);
+int flatTreeColectiva( void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm){
+    int rank, size, p;
+    int recbuf;
+    int *ccount = recvbuf;
+    MPI_Status status;
+
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank != root)
+        {
+            MPI_Send(sendbuf, count, datatype, root, rank, comm);
+        }
+    else{
+        *ccount = *(int *) sendbuf;
+        for (int p = 1; p < size; p++)
+        {
+                MPI_Recv(&recbuf, count, datatype, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &status);
+                *ccount += recbuf;
+        }
+    }
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
+    int i, done = 0, n, count;
+    int ccount;
+    int rank, size;
+    double PI25DT = 3.141592653589793238462643;
+    double pi, x, y, z;
+        MPI_Init(NULL, NULL);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     srand(rank+1);
     while (!done)
     {
@@ -56,29 +85,15 @@ int main(int argc, char *argv[])
             if (z <= 1.0)
                 count++;
         }
+        flatTreeColectiva(&count, &ccount, 1 , MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        //MPI_Reduce(&count, &ccount, 1 , MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-        MPI_Reduce(&count, &ccount, 1 , MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
         if (rank==0)
         {
             pi = ((double)ccount / (double)n) * 4.0;
             printf("pi is approx. %.16f, Error is %.16f\n", pi, fabs(pi - PI25DT));
         }
         
-
-        /*if (rank != 0)
-        {
-            MPI_Send(&count, 1, MPI_INT, 0, 99, MPI_COMM_WORLD);
-        }
-        else
-        {
-            for (int p = 1; p < size; p++)
-            {
-                MPI_Recv(&ccount, 1, MPI_INT, p, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                count += ccount;
-            }
-            pi = ((double)count / (double)n) * 4.0;
-            printf("pi is approx. %.16f, Error is %.16f\n", pi, fabs(pi - PI25DT));
-        }*/
     }
     MPI_Finalize();
 }
